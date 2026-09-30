@@ -1,6 +1,7 @@
 // Loaded after the generated gallery script. The database is authoritative.
 (() => {
   const API = (window.FIGLIB_VOTE_API || '').replace(/\/$/, '');
+  const BOARD_THRESHOLD = Number(window.FIGLIB_BOARD_THRESHOLD) === 1 ? 1 : 2;
   const TOKEN_KEY = 'figlib_shared_identity_v1';
   const SIGNAL_KEY = 'figlib_shared_update_v1';
   const records = new Map(D.map(r => [r.id, r]));
@@ -20,6 +21,43 @@
   const help = document.createElement('span');
   help.textContent = '匿名投票按浏览器识别 · 改票/撤票即时保存 · 他人票数约10秒同步';
   help.style.cssText = 'font-size:11px;color:var(--mute)'; document.querySelector('header').append(help);
+  const boardInfo = document.createElement('span');
+  boardInfo.id='board-info';boardInfo.style.cssText='font-size:12px;color:var(--mute)';
+  document.querySelector('header').append(boardInfo);
+  const empty = document.createElement('div');
+  empty.id='gallery-empty';empty.style.cssText='padding:24px;text-align:center;color:var(--mute)';
+  document.querySelector('#grid').after(empty);
+  const localRender=render;
+  render=()=>{
+    localRender();
+    const red=D.filter(r=>r.board==='red').length, black=D.filter(r=>r.board==='black').length;
+    const board=document.querySelector('#board');
+    board.options[1].textContent=`红榜 (${red})`;board.options[2].textContent=`黑榜 (${black})`;
+    boardInfo.textContent=`全库红榜 ${red} 张 / 黑榜 ${black} 张 · 净赞 ≥ ${BOARD_THRESHOLD} 入红榜，净踩 ≥ ${BOARD_THRESHOLD} 入黑榜`;
+    empty.replaceChildren();empty.hidden=!!document.querySelector('#grid .card');
+    if(!empty.hidden){
+      const total=board.value==='red'?red:board.value==='black'?black:null;
+      empty.textContent=board.value&&total===0?`暂无图片达到${board.value==='red'?'红榜':'黑榜'}门槛（净票数需达到 ${BOARD_THRESHOLD}）。`:'当前筛选没有结果。';
+      if(total>0){
+        const button=document.createElement('button');button.textContent=`查看完整${board.value==='red'?'红榜':'黑榜'} (${total})`;
+        button.onclick=()=>{
+          for(const id of ['sub','venue','source','domain','q'])document.getElementById(id).value='';
+          document.querySelector('#min').value='1';document.querySelector('#mine').checked=false;
+          st.cats=new Set(Object.keys(CN));document.querySelectorAll('#cats .chip').forEach(e=>e.classList.add('on'));render();
+        };empty.append(' ',button);
+      }
+    }
+    lock();
+  };
+  for(const id of ['min','sub','venue','domain','source','sort','mine'])document.getElementById(id).onchange=render;
+  document.querySelector('#q').oninput=render;
+  let previousMinimum=document.querySelector('#min').value;
+  document.querySelector('#board').onchange=()=>{
+    const board=document.querySelector('#board').value;
+    if(board){document.querySelector('#min').value='1';}
+    else document.querySelector('#min').value=previousMinimum;
+    render();
+  };
   V = {};
   voteBar = r => {
     const v = V[r.id] || 0;
@@ -37,7 +75,7 @@
     for (const r of D) {
       r.up=totals[r.id]?.up||0; r.down=totals[r.id]?.down||0;
       const net=r.up-r.down;
-      r.board=net>=2?'red':net<=-2?'black':'';
+      r.board=net>=BOARD_THRESHOLD?'red':net<=-BOARD_THRESHOLD?'black':'';
       r.score=Math.max(1,Math.min(5,baseScores.get(r.id)+(net>=2?1:net<=-2?-1:0)));
     }
     lastSnapshot=snapshot; render(); lock();

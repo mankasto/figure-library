@@ -78,4 +78,4 @@ $("#exp").onclick=()=>{const who=(prompt("你的名字（用于区分反馈来�
  const blob=new Blob([JSON.stringify({reviewer:who,exported:new Date().toISOString(),votes:V},null,1)],{type:"application/json"});
  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`feedback_${who}.json`;a.click();URL.revokeObjectURL(a.href)};
 render();
-</script><script src="vote-config.js"></script><script src="shared-votes.js"></script></body></html>
+</script><script src="vote-config.js?v=17a9b21a21cf"></script><script src="shared-votes.js?v=2acdc77f4901"></script></body></html>
