@@ -10,6 +10,9 @@ h1{font-size:16px;margin:0 12px 0 0}
 select,input{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px 8px;font:inherit}
 .chips{display:flex;flex-wrap:wrap;gap:6px}.chip{border:1px solid var(--line);border-radius:14px;padding:3px 10px;cursor:pointer;background:var(--card)}
 .chip.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+.year-filter{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.year-filter .chip{display:inline-flex;align-items:center;gap:4px}.year-filter input{margin:0;cursor:pointer}
+.year-filter button{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:6px;padding:3px 8px;font:inherit;cursor:pointer}
 #count{color:var(--mute);margin-left:auto}
 main{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;padding:16px}
 .card.red{border-color:#2e9c5a;box-shadow:0 0 0 2px #2e9c5a33}.card.black{border-color:#c9544f;opacity:.8}
@@ -31,6 +34,8 @@ main{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:
 <div class="chips" id="cats"></div>
 <label>最低分 <select id="min"><option>1</option><option>2</option><option selected>3</option><option>4</option><option>5</option></select></label>
 <select id="sub"><option value="">全部小类</option></select>
+<div class="year-filter" role="group" aria-labelledby="year-label"><span id="year-label">年份（arXiv 首次公开）</span>
+<div class="chips" id="years"></div><button type="button" id="years-all">全选</button><button type="button" id="years-none">清空</button></div>
 <select id="venue"><option value="">全部会议</option></select>
 <select id="source"><option value="">全部来源</option></select>
 <select id="domain"><option value="">全部领域</option></select>
@@ -52,13 +57,24 @@ const saveV=()=>{try{localStorage.setItem(VK,JSON.stringify(V))}catch(e){}};
 const nMine=()=>Object.keys(V).length;
 Object.keys(CN).forEach(c=>{const e=document.createElement("span");e.className="chip"+(st.cats.has(c)?" on":"");e.textContent=CN[c];
  e.onclick=()=>{st.cats.has(c)?st.cats.delete(c):st.cats.add(c);e.classList.toggle("on");render()};$("#cats").append(e)});
+// arXiv IDs encode the first announcement year, independently of venue and later versions.
+const arxivYear=id=>{const m=/^(\d{2})(?:0[1-9]|1[0-2])\.\d{4,5}(?:v[1-9]\d*)?$/.exec(id||"");return m?"20"+m[1]:""};
+const availableYears=[...new Set(D.map(r=>arxivYear(r.arxiv)))].sort((a,b)=>b.localeCompare(a));
+const yearInputs=[];
+availableYears.forEach(year=>{const label=document.createElement("label"),input=document.createElement("input");
+ label.className="chip on";input.type="checkbox";input.value=year;input.checked=true;
+ label.append(input,document.createTextNode(year||"年份未知"));$("#years").append(label);yearInputs.push(input);
+ input.onchange=()=>{label.classList.toggle("on",input.checked);render()}});
+function selectAllYears(checked){yearInputs.forEach(input=>{input.checked=checked;input.parentNode.classList.toggle("on",checked)})}
+$("#years-all").onclick=()=>{selectAllYears(true);render()};$("#years-none").onclick=()=>{selectAllYears(false);render()};
 const uniq=k=>[...new Set(D.map(r=>r[k].replace(/\d{4}$/,"")))].filter(Boolean).sort();
 Object.entries(SUB).forEach(([k,v])=>$("#sub").add(new Option(k+" "+v.replace(/_/g,"/"),k)));
 uniq("venue").forEach(v=>$("#venue").add(new Option(v,v)));uniq("domain").forEach(v=>$("#domain").add(new Option(v,v)));uniq("source").forEach(v=>$("#source").add(new Option(v,v)));
 ["#min","#sub","#venue","#domain","#source","#sort","#mine","#board"].forEach(s=>$(s).onchange=render);$("#q").oninput=render;
 const esc=s=>s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-function render(){const sb=$("#sub").value,m=+$("#min").value,v=$("#venue").value,d=$("#domain").value,so=$("#source").value,q=$("#q").value.toLowerCase();
+function render(){const sb=$("#sub").value,m=+$("#min").value,v=$("#venue").value,d=$("#domain").value,so=$("#source").value,q=$("#q").value.toLowerCase(),years=new Set(yearInputs.filter(input=>input.checked).map(input=>input.value));
  const R=D.filter(r=>st.cats.has(r.cat)&&(!sb||r.sub===sb)&&r.score>=m&&(!v||r.venue.startsWith(v))&&(!d||r.domain===d)&&(!so||r.source===so)&&(!q||(r.title+r.caption).toLowerCase().includes(q)))
+  .filter(r=>years.has(arxivYear(r.arxiv)))
   .filter(r=>!$("#mine").checked||V[r.id]===1)
   .filter(r=>{const bd=$("#board").value;return bd?r.board===bd:r.board!=="black"})
   .sort($("#sort").value==="human"?((a,b)=>((b.up||0)-(b.down||0))-((a.up||0)-(a.down||0))||b.score-a.score):((a,b)=>b.score-a.score||b.arxiv.localeCompare(a.arxiv)));
@@ -78,4 +94,4 @@ $("#exp").onclick=()=>{const who=(prompt("你的名字（用于区分反馈来�
  const blob=new Blob([JSON.stringify({reviewer:who,exported:new Date().toISOString(),votes:V},null,1)],{type:"application/json"});
  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`feedback_${who}.json`;a.click();URL.revokeObjectURL(a.href)};
 render();
-</script><script src="vote-config.js?v=17a9b21a21cf"></script><script src="shared-votes.js?v=2acdc77f4901"></script></body></html>
+</script><script src="vote-config.js?v=17a9b21a21cf"></script><script src="shared-votes.js?v=91406abfef39"></script></body></html>

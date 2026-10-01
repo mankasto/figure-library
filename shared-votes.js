@@ -43,6 +43,7 @@
         button.onclick=()=>{
           for(const id of ['sub','venue','source','domain','q'])document.getElementById(id).value='';
           document.querySelector('#min').value='1';document.querySelector('#mine').checked=false;
+          selectAllYears(true);
           st.cats=new Set(Object.keys(CN));document.querySelectorAll('#cats .chip').forEach(e=>e.classList.add('on'));render();
         };empty.append(' ',button);
       }
