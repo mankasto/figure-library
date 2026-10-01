@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>论文图素材库</title>
+<style>
+:root{--bg:#f6f6f4;--card:#fff;--ink:#1d1d1f;--mute:#6b6b70;--line:#e3e3e0;--acc:#2f5bd3}
+@media (prefers-color-scheme:dark){:root{--bg:#161618;--card:#222226;--ink:#ececef;--mute:#9a9aa2;--line:#34343a;--acc:#7da2ff}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 -apple-system,"PingFang SC",sans-serif}
+header{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line);padding:12px 16px;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+h1{font-size:16px;margin:0 12px 0 0}
+select,input{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px 8px;font:inherit}
+.chips{display:flex;flex-wrap:wrap;gap:6px}.chip{border:1px solid var(--line);border-radius:14px;padding:3px 10px;cursor:pointer;background:var(--card)}
+.chip.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+.year-filter{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.year-filter .chip{display:inline-flex;align-items:center;gap:4px}.year-filter input{margin:0;cursor:pointer}
+.year-filter button{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:6px;padding:3px 8px;font:inherit;cursor:pointer}
+#count{color:var(--mute);margin-left:auto}
+main{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;padding:16px}
+.card.red{border-color:#2e9c5a;box-shadow:0 0 0 2px #2e9c5a33}.card.black{border-color:#c9544f;opacity:.8}
+.badge{font-size:11px;border-radius:8px;padding:0 6px;color:#fff;margin-right:4px}.badge.red{background:#2e9c5a}.badge.black{background:#c9544f}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden;cursor:zoom-in;display:flex;flex-direction:column}
+.card .im{background:#fff;height:210px;display:flex;align-items:center;justify-content:center}
+.card img{max-width:100%;max-height:210px;object-fit:contain}
+.meta{padding:8px 10px;font-size:12px;color:var(--mute)}.meta b{color:var(--ink);font-weight:600}
+.stars{color:#e0a100}
+#lb{position:fixed;inset:0;background:rgba(0,0,0,.86);display:none;z-index:9;padding:24px;overflow:auto}
+#lb.on{display:block}#lb img{display:block;max-width:100%;max-height:78vh;margin:0 auto;background:#fff}
+#lb .cap{max-width:1000px;margin:14px auto;color:#ddd;font-size:13px}#lb a{color:#9bb8ff}
+.vote{display:flex;gap:6px;padding:0 10px 8px}.vote button{border:1px solid var(--line);background:var(--card);color:var(--mute);border-radius:14px;padding:2px 10px;cursor:pointer;font:inherit;font-size:12px}
+.vote button.up.on{background:#2e9c5a;border-color:#2e9c5a;color:#fff}.vote button.down.on{background:#c9544f;border-color:#c9544f;color:#fff}
+.hv{font-size:11px;color:#2e9c5a;margin-left:auto;align-self:center}
+#exp{border:1px solid var(--acc);color:var(--acc);background:var(--card);border-radius:6px;padding:5px 10px;cursor:pointer;font:inherit}
+</style></head><body>
+<header><h1>论文图素材库</h1>
+<div class="chips" id="cats"></div>
+<label>最低分 <select id="min"><option>1</option><option>2</option><option selected>3</option><option>4</option><option>5</option></select></label>
+<select id="sub"><option value="">全部小类</option></select>
+<div class="year-filter" role="group" aria-labelledby="year-label"><span id="year-label">年份（arXiv 首次公开）</span>
+<div class="chips" id="years"></div><button type="button" id="years-all">全选</button><button type="button" id="years-none">清空</button></div>
+<select id="venue"><option value="">全部会议</option></select>
+<select id="source"><option value="">全部来源</option></select>
+<select id="domain"><option value="">全部领域</option></select>
+<select id="board"><option value="">全部（不含黑榜）</option><option value="red">红榜</option><option value="black">黑榜</option></select>
+<select id="sort"><option value="score">按评分</option><option value="human">按大家认可</option></select>
+<label><input type="checkbox" id="mine"> 只看我赞过的</label>
+<input id="q" placeholder="搜标题 / caption">
+<button id="exp">导出我的反馈</button>
+<span id="count"></span></header>
+<main id="grid"></main>
+<div id="lb"></div>
+<script>
+const D=/*__DATA__*/[];const CN=/*__CATCN__*/{};const SUB=/*__SUBCN__*/{};
+const st={cats:new Set(["system_arch","network_arch","framework","concept","taxonomy","dataset_bench"])};
+const $=s=>document.querySelector(s);
+// per-viewer votes live in this browser only; "导出我的反馈" turns them into a file the library build merges
+const VK="figlib_votes_v1";let V={};try{V=JSON.parse(localStorage.getItem(VK)||"{}")}catch(e){V={}}
+const saveV=()=>{try{localStorage.setItem(VK,JSON.stringify(V))}catch(e){}};
+const nMine=()=>Object.keys(V).length;
+Object.keys(CN).forEach(c=>{const e=document.createElement("span");e.className="chip"+(st.cats.has(c)?" on":"");e.textContent=CN[c];
+ e.onclick=()=>{st.cats.has(c)?st.cats.delete(c):st.cats.add(c);e.classList.toggle("on");render()};$("#cats").append(e)});
+// arXiv IDs encode the first announcement year, independently of venue and later versions.
+const arxivYear=id=>{const m=/^(\d{2})(?:0[1-9]|1[0-2])\.\d{4,5}(?:v[1-9]\d*)?$/.exec(id||"");return m?"20"+m[1]:""};
+const availableYears=[...new Set(D.map(r=>arxivYear(r.arxiv)))].sort((a,b)=>b.localeCompare(a));
+const yearInputs=[];
+availableYears.forEach(year=>{const label=document.createElement("label"),input=document.createElement("input");
+ label.className="chip on";input.type="checkbox";input.value=year;input.checked=true;
+ label.append(input,document.createTextNode(year||"年份未知"));$("#years").append(label);yearInputs.push(input);
+ input.onchange=()=>{label.classList.toggle("on",input.checked);render()}});
+function selectAllYears(checked){yearInputs.forEach(input=>{input.checked=checked;input.parentNode.classList.toggle("on",checked)})}
+$("#years-all").onclick=()=>{selectAllYears(true);render()};$("#years-none").onclick=()=>{selectAllYears(false);render()};
+const uniq=k=>[...new Set(D.map(r=>r[k].replace(/\d{4}$/,"")))].filter(Boolean).sort();
+Object.entries(SUB).forEach(([k,v])=>$("#sub").add(new Option(k+" "+v.replace(/_/g,"/"),k)));
+uniq("venue").forEach(v=>$("#venue").add(new Option(v,v)));uniq("domain").forEach(v=>$("#domain").add(new Option(v,v)));uniq("source").forEach(v=>$("#source").add(new Option(v,v)));
+["#min","#sub","#venue","#domain","#source","#sort","#mine","#board"].forEach(s=>$(s).onchange=render);$("#q").oninput=render;
+const esc=s=>s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function render(){const sb=$("#sub").value,m=+$("#min").value,v=$("#venue").value,d=$("#domain").value,so=$("#source").value,q=$("#q").value.toLowerCase(),years=new Set(yearInputs.filter(input=>input.checked).map(input=>input.value));
+ const R=D.filter(r=>st.cats.has(r.cat)&&(!sb||r.sub===sb)&&r.score>=m&&(!v||r.venue.startsWith(v))&&(!d||r.domain===d)&&(!so||r.source===so)&&(!q||(r.title+r.caption).toLowerCase().includes(q)))
+  .filter(r=>years.has(arxivYear(r.arxiv)))
+  .filter(r=>!$("#mine").checked||V[r.id]===1)
+  .filter(r=>{const bd=$("#board").value;return bd?r.board===bd:r.board!=="black"})
+  .sort($("#sort").value==="human"?((a,b)=>((b.up||0)-(b.down||0))-((a.up||0)-(a.down||0))||b.score-a.score):((a,b)=>b.score-a.score||b.arxiv.localeCompare(a.arxiv)));
+ $("#count").textContent=R.length+" 张";$("#exp").textContent="导出我的反馈 ("+nMine()+")";
+ $("#grid").innerHTML=R.slice(0,1500).map((r,i)=>`<div class="card${r.board?" "+r.board:""}" data-i="${D.indexOf(r)}"><div class="im"><img loading="lazy" src="${encodeURI(r.path)}"></div>
+ <div class="meta">${r.board==="red"?'<span class="badge red">红榜</span>':r.board==="black"?'<span class="badge black">黑榜</span>':""}<span class="stars">${"★".repeat(r.score)}</span> ${CN[r.cat]}${r.sub?" · "+SUB[r.sub].replace(/_/g,"/"):""} · <b>${esc(r.venue)}</b> · ${esc(r.source||"")}<br>${esc(r.title.slice(0,80))}</div>${voteBar(r)}</div>`).join("");}
+function voteBar(r){const v=V[r.id]||0;return `<div class="vote" data-id="${r.id}"><button class="up${v===1?" on":""}">👍 好图</button><button class="down${v===-1?" on":""}">👎</button>${(r.up||r.down)?`<span class="hv">大家 +${r.up||0} / −${r.down||0}</span>`:""}</div>`}
+$("#grid").onclick=e=>{const b=e.target.closest(".vote button");
+ if(b){const id=b.parentNode.dataset.id,val=b.classList.contains("up")?1:-1;V[id]===val?delete V[id]:V[id]=val;saveV();render();return}
+ const c=e.target.closest(".card");if(!c)return;const r=D[+c.dataset.i];
+ $("#lb").innerHTML=`<img src="${encodeURI(r.path)}"><div class="cap"><b>${esc(r.title)}</b> — ${esc(r.venue)} ·
+ <a href="https://arxiv.org/abs/${r.arxiv}" target="_blank">arXiv ${r.arxiv}</a>${r.original?` · <a href="${encodeURI(r.original)}">矢量原件</a>`:""}
+ · ${CN[r.cat]} · ${r.score}分 ${r.note?"（"+esc(r.note)+"）":""}<br><br>${esc(r.caption)}</div>`;$("#lb").classList.add("on")};
+$("#lb").onclick=e=>{if(e.target.tagName!=="A")$("#lb").classList.remove("on")};
+document.onkeydown=e=>{if(e.key==="Escape")$("#lb").classList.remove("on")};
+$("#exp").onclick=()=>{const who=(prompt("你的名字（用于区分反馈来源）","")||"anon").trim().replace(/[^\w\u4e00-\u9fa5-]/g,"_");
+ const blob=new Blob([JSON.stringify({reviewer:who,exported:new Date().toISOString(),votes:V},null,1)],{type:"application/json"});
+ const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`feedback_${who}.json`;a.click();URL.revokeObjectURL(a.href)};
+render();
+</script></body></html>
